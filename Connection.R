@@ -1,3 +1,8 @@
+
+list.of.packages <- c("odbc", "DBI", "dbplyr", "tidyverse")
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
+
 # Dependencies
 library(odbc)
 library(DBI)
@@ -14,8 +19,8 @@ odbc::odbcListDrivers()
 con <- DBI::dbConnect(odbc::odbc(),
                       Driver   = "MySQL ODBC 8.0 Unicode Driver",
                       Server   = "compass-db-server.cgbcuxp6tr07.eu-central-1.rds.amazonaws.com",
-                      UID      = "studentX",
-                      PWD      = "MojeOblibenaHodina",
+                      UID      = rstudioapi::askForPassword("Database user"),
+                      PWD      = rstudioapi::askForPassword("Database password"),
                       Port     = 3306)
 
 # Příklad dotazování "SQL style"
