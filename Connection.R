@@ -103,6 +103,9 @@ data$group_engine_power <- cut(data$vehicle_engine_power,
 data$insurer_age_group <- cut(data$insurer_age, 
                               breaks = age_breaks,
                               labels =getLabels(age_breaks))
+# Na pro vek u firem
+data$insurer_age[which(data$insurer_legal_form == 3)] = NA
+
 rm(age_breaks,power_breaks,volume_breaks,getLabels)
 
 
