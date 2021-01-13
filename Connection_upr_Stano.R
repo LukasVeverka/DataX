@@ -35,18 +35,22 @@ data <-
 rm(con)
 
 
-# odstranění pořadového sloupce, který vznikl při přeukládání
-# odstranění očividně zbytečných proměnných
-# "vehicle_category", "vehicle_date_of_first_registration", "insurer_birth_date" - NA hodnoty, nebo jen jedna hladina
-# "model_poin_source" - bylo řečeno, že nám pro analýzu k ničemu nebude
+# drop order number created by load 
 data$X = NULL
+# drop vehicle category - almost all data are "For personal use" (CODE: 1)
 data$vehicle_category = NULL
-data$vehicle_date_of_first_registration = NULL
-data$insurer_birth_date = NULL
+# no information - holds only one value
 data$model_poin_source = NULL
+# droppped due to NaNs
+data$insurer_birth_date = NULL
+data$insurer_place = NULL
+# rather used vehicle age
+data$vehicle_date_of_first_registration = NULL
+# too many models, not applicable in model -> drop
+data$vehicle_model = NULL
 
 
-# výpočet medianu pro insurance_comp
+# calc median for all insurance_comp-anies
 attach(data)
 data$insurance_median = apply(matrix(c(insurance_comp_1,insurance_comp_2,
                                         insurance_comp_3,insurance_comp_4,
@@ -56,30 +60,29 @@ data$insurance_median = apply(matrix(c(insurance_comp_1,insurance_comp_2,
                                1,median, na.rm = T)
 detach(data)
 
-# vyberem iba data kde je medián ceny
+# keep only values where at least one price is non-null
 data <- as.data.frame(data[!is.na(data$insurance_median),])
 
 
-# prevod vybraných proměnných na faktor
+# factorize given variables
 chci_faktor = c("model_point_id", "model_point_Period", 
-                "vehicle_brand", "vehicle_model", 
-                "vehicle_fuel_type", "vehicle_type_of_usage", 
-                "insurer_legal_form", "insurer_ZIP_code", "insurer_place", 
-                "policy_payment_frequency")
+                "vehicle_brand", "vehicle_fuel_type", 
+                "vehicle_type_of_usage", "insurer_legal_form", 
+                "insurer_ZIP_code", "policy_payment_frequency")
 for(i in 1:length(chci_faktor)){
   data[,chci_faktor[i]] = as.factor(data[,chci_faktor[i]])
 }
 rm(chci_faktor,i)
 
-# prevod veku na číslo 
+# convert Age to numeric 
 data$insurer_age <- as.numeric(data$insurer_age)
 
-# vektory jednotlivých hraníc intervalov
+# values discovered as "boundary" for given variables by EDA
 volume_breaks<- c(0,1000, 1350, 1600, 1850, 2000, 2200, 2600)
 power_breaks <- c(0,50,75,93,110,150,180,5000)
 age_breaks   <- c(0,24,26,30,35,40,45,50,60,70)
 
-# funkcia ktorá vytvorí mená skupín
+# function to create named groups by its boundaries
 getLabels <- function(vec){
   retVec <- c()
   for (i in 2:length(vec)-1){
@@ -88,12 +91,14 @@ getLabels <- function(vec){
   retVec[i] <- paste0(vec[i]+1,"+")
   return(retVec)
 }
-
+# Bonus-Malus appears to be dependent as (nr of insured month)-(nr of claims)*36
 data$malusBonus36 <- (data$insurer_number_of_previous_insured_months - 
                         (36 * data$insurer_number_of_previous_accidents))
+# create variable number of whole years insured
 data$ins_nr_prev_insured_whole_years <- 
         round(data$insurer_number_of_previous_insured_months/12 - .5)
 
+# grouped variables
 data$group_engine_volume <- cut(data$vehicle_engine_volume, 
                                 breaks = volume_breaks,
                                 labels =getLabels(volume_breaks))
@@ -105,19 +110,15 @@ data$group_engine_power <- cut(data$vehicle_engine_power,
 data$insurer_age_group <- cut(data$insurer_age, 
                               breaks = age_breaks,
                               labels =getLabels(age_breaks))
-# Na pro vek u firem
+# Companies are not allowed to have age - set to NULL, Age_group set to "ICO"
 data$insurer_age[which(data$insurer_legal_form == 3)] = NA
 levels(data$insurer_age_group) <- c(levels(data$insurer_age_group),"ICO")
 data$insurer_age_group[is.na(data$insurer_age_group)] = "ICO"
 
-rm(age_breaks,power_breaks,volume_breaks,getLabels)
+rm(age_breaks,power_breaks,volume_breaks,getLabels) # clean variable set
 
-
-# Priprava dat
-data$vehicle_model = NULL
-data$insurer_place = NULL
-
-set.seed(123)
+# create fix train and validation split
+set.seed(123) # fix random number generator
 train = sample(1:nrow(data), nrow(data)*.8)
 data_train = data[train,]
 data_validation = data[-train,]
